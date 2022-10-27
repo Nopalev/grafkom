@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <meta charset="UTF-8" />
 <html>
-  <head>
-    <title>Textures and glmatrix</title>
-    <style>
-      body {
-        background-color: #eeeeee;
-      }
-    </style>
 
-    <script src="../gl-matrix.js"></script>
+<head>
+  <title>Textures and glmatrix</title>
+  <style>
+    body {
+      background-color: #eeeeee;
+    }
+  </style>
 
-    <script>
-      "use strict";
+  <script src="../gl-matrix.js"></script>
 
-      const vertexShaderSource = `
+  <script>
+    "use strict";
+
+    const vertexShaderSource = `
     attribute vec3 a_coords;
     attribute vec2 a_texCoords;
     uniform mat4 u_transformMatrix; // projection * modelview
@@ -31,7 +32,7 @@
         gl_Position = u_transformMatrix * coords4;
     }`;
 
-      const fragmentShaderSource = `
+    const fragmentShaderSource = `
     precision mediump float;
     varying vec4 v_color;
     varying vec2 v_texCoords;
@@ -41,255 +42,252 @@
         gl_FragColor = v_color*texColor;
     }`;
 
-      let gl; // The webgl context.
-      let uTransformMatrixLoc; // Location of the uniform mat4 representing the modelview and projection transformation
-      let uNormalMatrixLoc; // Location of the unifrom mat3 representing the transform to be applied to normal vectors
+    let gl; // The webgl context.
+    let uTransformMatrixLoc; // Location of the uniform mat4 representing the modelview and projection transformation
+    let uNormalMatrixLoc; // Location of the unifrom mat3 representing the transform to be applied to normal vectors
 
-      const projection = mat4.create(); // projection matrix
-      const modelview = mat4.create(); // modelview matrix
-      const modelviewProj = mat4.create(); // combined transformation matrix
-      const normalMatrix = mat3.create(); // matrix, derived from modelview matrix, for transforming normal vectors
+    const projection = mat4.create(); // projection matrix
+    const modelview = mat4.create(); // modelview matrix
+    const modelviewProj = mat4.create(); // combined transformation matrix
+    const normalMatrix = mat3.create(); // matrix, derived from modelview matrix, for transforming normal vectors
 
-      let rotateX = 0; // rotation amount around the three axes
-      let rotateY = 0;
-      let rotateZ = 0;
+    let rotateX = 0; // rotation amount around the three axes
+    let rotateY = 0;
+    let rotateZ = 0;
 
-      let textureObjects = []; // Six texture objects to hold the six tectures.
-      const textureURLs = [
-        "park/posz.jpg",
-        "park/posx.jpg",
-        "park/negz.jpg",
-        "park/negx.jpg",
-        "park/posy.jpg",
-        "park/negy.jpg",
-      ];
+    let textureObjects = []; // Six texture objects to hold the six tectures.
+    const textureURLs = [
+      "park/posz.jpg",
+      "park/posx.jpg",
+      "park/negz.jpg",
+      "park/negx.jpg",
+      "park/posy.jpg",
+      "park/negy.jpg",
+    ];
 
-      /* Draws a txtured cube, where the images for the six faces are
-       * the actually images designed to use as a cube map texture.
-       */
-      function draw() {
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    /* Draws a txtured cube, where the images for the six faces are
+     * the actually images designed to use as a cube map texture.
+     */
+    function draw() {
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        /* Set up modelview to hold the viewing transform. */
+      /* Set up modelview to hold the viewing transform. */
 
-        mat4.lookAt(modelview, [0, 0, 10], [0, 0, 0], [0, 1, 0]);
-        mat4.rotateX(modelview, modelview, rotateX);
-        mat4.rotateY(modelview, modelview, rotateY);
-        mat4.rotateZ(modelview, modelview, rotateZ);
+      mat4.lookAt(modelview, [0, 0, 10], [0, 0, 0], [0, 1, 0]);
+      mat4.rotateX(modelview, modelview, rotateX);
+      mat4.rotateY(modelview, modelview, rotateY);
+      mat4.rotateZ(modelview, modelview, rotateZ);
 
-        // Save the viewing transformation.
-        let saveMV = mat4.clone(modelview);
+      // Save the viewing transformation.
+      let saveMV = mat4.clone(modelview);
 
-        drawSquare(textureObjects[0]); // front face
+      drawSquare(textureObjects[0]); // front face
+    }
+
+    /**
+     * Draw the 2-by-2 square in the PLANE z = 1 centered at the (0,0,1),
+     * but subject to the combined projection and modelview transforms.
+     * (The untransformed square is the front face of a cube with side 2.)
+     * The vertex coords attribute was configured in initGL() and does
+     * not change in this program.  Also, the white color and the normal
+     * vector were set there, and do not change.
+     */
+    function drawSquare(texObj) {
+      // Send combined projection/modelview matrix to shader.
+      mat4.multiply(modelviewProj, projection, modelview);
+      gl.uniformMatrix4fv(uTransformMatrixLoc, false, modelviewProj);
+      // Send normal matrix to the shader.
+      mat3.normalFromMat4(normalMatrix, modelview);
+      gl.uniformMatrix3fv(uNormalMatrixLoc, false, normalMatrix);
+      // bind the appropriate texture object
+      gl.bindTexture(gl.TEXTURE_2D, texObj);
+      // Draw the 2-by-2 square (originally in the xy-plane)
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    }
+
+    /* Initialize the WebGL context.  Called from init() */
+    function initGL() {
+      let prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+      gl.useProgram(prog);
+
+      let aCoordsLoc = gl.getAttribLocation(prog, "a_coords");
+      let coordsBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, coordsBuf);
+      let coords = new Float32Array([-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1]);
+      gl.bufferData(gl.ARRAY_BUFFER, coords, gl.STATIC_DRAW);
+      gl.vertexAttribPointer(aCoordsLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(aCoordsLoc);
+
+      let aTexCoordsLoc = gl.getAttribLocation(prog, "a_texCoords");
+      let tCoordsBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, tCoordsBuf);
+      let tCoords = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
+      gl.bufferData(gl.ARRAY_BUFFER, tCoords, gl.STATIC_DRAW);
+      gl.vertexAttribPointer(aTexCoordsLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(aTexCoordsLoc);
+
+      uTransformMatrixLoc = gl.getUniformLocation(prog, "u_transformMatrix");
+      uNormalMatrixLoc = gl.getUniformLocation(prog, "u_normalMatrix");
+
+      let uNormalLoc = gl.getUniformLocation(prog, "u_normal");
+      gl.uniform3f(uNormalLoc, 0, 0, 1);
+      let uDiffuseLoc = gl.getUniformLocation(prog, "u_diffuse");
+      gl.uniform3f(uDiffuseLoc, 1, 1, 1);
+
+      gl.enable(gl.DEPTH_TEST);
+
+      mat4.perspective(projection, Math.PI / 8, 1, 5, 15);
+
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+      let img = new Image();
+      img.onload = function () {
+        textureObjects[0] = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, textureObjects[0]);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          img
+        );
+        gl.generateMipmap(gl.TEXTURE_2D);
+        console.log("loaded texture", 0);
+        draw();
+      };
+      img.src = textureURLs[0];
+    }
+
+    /* Creates a program for use in the WebGL context gl, and returns the
+     * identifier for that program.  If an error occurs while compiling or
+     * linking the program, an exception of type Error is thrown.  The error
+     * string contains the compilation or linking error.  If no error occurs,
+     * the program identifier is the return value of the function.
+     *    The second and third parameters are strings that contain the
+     * source code for the vertex shader and for the fragment shader.
+     */
+    function createProgram(gl, vShader, fShader) {
+      let vsh = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vsh, vShader);
+      gl.compileShader(vsh);
+      if (!gl.getShaderParameter(vsh, gl.COMPILE_STATUS)) {
+        throw new Error(
+          "Error in vertex shader:  " + gl.getShaderInfoLog(vsh)
+        );
       }
-
-      /**
-       * Draw the 2-by-2 square in the PLANE z = 1 centered at the (0,0,1),
-       * but subject to the combined projection and modelview transforms.
-       * (The untransformed square is the front face of a cube with side 2.)
-       * The vertex coords attribute was configured in initGL() and does
-       * not change in this program.  Also, the white color and the normal
-       * vector were set there, and do not change.
-       */
-      function drawSquare(texObj) {
-        // Send combined projection/modelview matrix to shader.
-        mat4.multiply(modelviewProj, projection, modelview);
-        gl.uniformMatrix4fv(uTransformMatrixLoc, false, modelviewProj);
-        // Send normal matrix to the shader.
-        mat3.normalFromMat4(normalMatrix, modelview);
-        gl.uniformMatrix3fv(uNormalMatrixLoc, false, normalMatrix);
-        // bind the appropriate texture object
-        gl.bindTexture(gl.TEXTURE_2D, texObj);
-        // Draw the 2-by-2 square (originally in the xy-plane)
-        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+      let fsh = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fsh, fShader);
+      gl.compileShader(fsh);
+      if (!gl.getShaderParameter(fsh, gl.COMPILE_STATUS)) {
+        throw new Error(
+          "Error in fragment shader:  " + gl.getShaderInfoLog(fsh)
+        );
       }
-
-      /* Initialize the WebGL context.  Called from init() */
-      function initGL() {
-        let prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
-        gl.useProgram(prog);
-
-        let aCoordsLoc = gl.getAttribLocation(prog, "a_coords");
-        let coordsBuf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, coordsBuf);
-        let coords = new Float32Array([-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1]);
-        gl.bufferData(gl.ARRAY_BUFFER, coords, gl.STATIC_DRAW);
-        gl.vertexAttribPointer(aCoordsLoc, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aCoordsLoc);
-
-        let aTexCoordsLoc = gl.getAttribLocation(prog, "a_texCoords");
-        let tCoordsBuf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, tCoordsBuf);
-        let tCoords = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
-        gl.bufferData(gl.ARRAY_BUFFER, tCoords, gl.STATIC_DRAW);
-        gl.vertexAttribPointer(aTexCoordsLoc, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aTexCoordsLoc);
-
-        uTransformMatrixLoc = gl.getUniformLocation(prog, "u_transformMatrix");
-        uNormalMatrixLoc = gl.getUniformLocation(prog, "u_normalMatrix");
-
-        let uNormalLoc = gl.getUniformLocation(prog, "u_normal");
-        gl.uniform3f(uNormalLoc, 0, 0, 1);
-        let uDiffuseLoc = gl.getUniformLocation(prog, "u_diffuse");
-        gl.uniform3f(uDiffuseLoc, 1, 1, 1);
-
-        gl.enable(gl.DEPTH_TEST);
-
-        mat4.perspective(projection, Math.PI / 8, 1, 5, 15);
-
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-
-        let img = new Image();
-        img.onload = function () {
-          textureObjects[0] = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, textureObjects[0]);
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            img
-          );
-          gl.generateMipmap(gl.TEXTURE_2D);
-          console.log("loaded texture", 0);
-          draw();
-        };
-        img.src = textureURLs[0];
+      let prog = gl.createProgram();
+      gl.attachShader(prog, vsh);
+      gl.attachShader(prog, fsh);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        throw new Error(
+          "Link error in program:  " + gl.getProgramInfoLog(prog)
+        );
       }
+      return prog;
+    }
 
-      /* Creates a program for use in the WebGL context gl, and returns the
-       * identifier for that program.  If an error occurs while compiling or
-       * linking the program, an exception of type Error is thrown.  The error
-       * string contains the compilation or linking error.  If no error occurs,
-       * the program identifier is the return value of the function.
-       *    The second and third parameters are strings that contain the
-       * source code for the vertex shader and for the fragment shader.
-       */
-      function createProgram(gl, vShader, fShader) {
-        let vsh = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vsh, vShader);
-        gl.compileShader(vsh);
-        if (!gl.getShaderParameter(vsh, gl.COMPILE_STATUS)) {
-          throw new Error(
-            "Error in vertex shader:  " + gl.getShaderInfoLog(vsh)
-          );
-        }
-        let fsh = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fsh, fShader);
-        gl.compileShader(fsh);
-        if (!gl.getShaderParameter(fsh, gl.COMPILE_STATUS)) {
-          throw new Error(
-            "Error in fragment shader:  " + gl.getShaderInfoLog(fsh)
-          );
-        }
-        let prog = gl.createProgram();
-        gl.attachShader(prog, vsh);
-        gl.attachShader(prog, fsh);
-        gl.linkProgram(prog);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-          throw new Error(
-            "Link error in program:  " + gl.getProgramInfoLog(prog)
-          );
-        }
-        return prog;
+    /**
+     *  An event listener for the keydown event.  It is installed by the init() function.
+     *  The arrow keys, PageUp, and PageDown will rotate the cube by modifying the
+     *  modeling transformation.  Home and Return key resets the modeling transform
+     *  to the identity.
+     */
+    function doKey(evt) {
+      let rotationChanged = true;
+      switch (evt.keyCode) {
+        case 37:
+          rotateY -= 0.05;
+          break; // left arrow
+        case 39:
+          rotateY += 0.05;
+          break; // right arrow
+        case 38:
+          rotateX -= 0.05;
+          break; // up arrow
+        case 40:
+          rotateX += 0.05;
+          break; // down arrow
+        case 33:
+          rotateZ += 0.05;
+          break; // PageUp
+        case 34:
+          rotateZ -= 0.05;
+          break; // PageDown
+        case 13: // return key
+        case 36:
+          rotateX = rotateY = rotateZ = 0;
+          break; // home key
+        default:
+          rotationChanged = false;
       }
-
-      /**
-       *  An event listener for the keydown event.  It is installed by the init() function.
-       *  The arrow keys, PageUp, and PageDown will rotate the cube by modifying the
-       *  modeling transformation.  Home and Return key resets the modeling transform
-       *  to the identity.
-       */
-      function doKey(evt) {
-        let rotationChanged = true;
-        switch (evt.keyCode) {
-          case 37:
-            rotateY -= 0.05;
-            break; // left arrow
-          case 39:
-            rotateY += 0.05;
-            break; // right arrow
-          case 38:
-            rotateX -= 0.05;
-            break; // up arrow
-          case 40:
-            rotateX += 0.05;
-            break; // down arrow
-          case 33:
-            rotateZ += 0.05;
-            break; // PageUp
-          case 34:
-            rotateZ -= 0.05;
-            break; // PageDown
-          case 13: // return key
-          case 36:
-            rotateX = rotateY = rotateZ = 0;
-            break; // home key
-          default:
-            rotationChanged = false;
-        }
-        if (rotationChanged) {
-          evt.preventDefault();
-          draw();
-        }
+      if (rotationChanged) {
+        evt.preventDefault();
+        draw();
       }
+    }
 
-      /**
-       * initialization function that will be called when the page has loaded
-       */
-      function init() {
-        try {
-          let canvas = document.getElementById("webglcanvas");
-          gl = canvas.getContext("webgl");
-          if (!gl) {
-            throw "Browser does not support WebGL";
-          }
-        } catch (e) {
-          document.getElementById("canvas-holder").innerHTML =
-            "<p>Sorry, could not get a WebGL graphics context.</p>";
-          return;
+    /**
+     * initialization function that will be called when the page has loaded
+     */
+    function init() {
+      try {
+        let canvas = document.getElementById("webglcanvas");
+        gl = canvas.getContext("webgl");
+        if (!gl) {
+          throw "Browser does not support WebGL";
         }
-        try {
-          initGL(); // initialize the WebGL graphics context
-        } catch (e) {
-          document.getElementById("canvas-holder").innerHTML =
-            "<p>Sorry, could not initialize the WebGL graphics context:" +
-            e.message +
-            "</p>";
-          return;
-        }
-        document.addEventListener("keydown", doKey, false);
+      } catch (e) {
+        document.getElementById("canvas-holder").innerHTML =
+          "<p>Sorry, could not get a WebGL graphics context.</p>";
+        return;
       }
+      try {
+        initGL(); // initialize the WebGL graphics context
+      } catch (e) {
+        document.getElementById("canvas-holder").innerHTML =
+          "<p>Sorry, could not initialize the WebGL graphics context:" +
+          e.message +
+          "</p>";
+        return;
+      }
+      document.addEventListener("keydown", doKey, false);
+    }
 
-      window.onload = init;
-    </script>
-  </head>
-  <body>
-    <h2>Texture Mapping pada Sisi Permukaan Kubus</h2>
+    window.onload = init;
+  </script>
+</head>
 
-    <p id="message">
-      Gunakan tombol panah pada keyboard, PageUp, dan PageDown untuk rotasi
-      objek.<br />
-      Tombol Home dan Enter atau Return untuk kembali ke tampilan awal.
-    </p>
+<body>
+  <h2>Texture Mapping pada Sisi Permukaan Kubus</h2>
 
-    <noscript
-      ><hr />
-      <h3>
-        This page requires Javascript and a web browser that supports WebGL
-      </h3>
-      <hr
-    /></noscript>
+  <p id="message">
+    Gunakan tombol panah pada keyboard, PageUp, dan PageDown untuk rotasi
+    objek.<br />
+    Tombol Home dan Enter atau Return untuk kembali ke tampilan awal.
+  </p>
 
-    <div id="canvas-holder">
-      <canvas
-        width="600"
-        height="600"
-        id="webglcanvas"
-        style="background-color: red"
-      ></canvas>
-    </div>
-  </body>
+  <noscript>
+    <hr />
+    <h3>
+      This page requires Javascript and a web browser that supports WebGL
+    </h3>
+    <hr />
+  </noscript>
+
+  <div id="canvas-holder">
+    <canvas width="600" height="600" id="webglcanvas" style="background-color: red"></canvas>
+  </div>
+</body>
+
 </html>

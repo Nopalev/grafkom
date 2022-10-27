@@ -9,7 +9,7 @@
       }
     </style>
 
-    <script src="../gl-matrix.js"></script>
+    <script src="gl-matrix.js"></script>
 
     <script>
       "use strict";
@@ -55,6 +55,7 @@
       let rotateZ = 0;
 
       let textureObjects = []; // Six texture objects to hold the six tectures.
+      let img = []; // six image objects to bind on to the cube
       const textureURLs = [
         "park/posz.jpg",
         "park/posx.jpg",
@@ -78,10 +79,26 @@
         mat4.rotateY(modelview, modelview, rotateY);
         mat4.rotateZ(modelview, modelview, rotateZ);
 
-        // Save the viewing transformation.
-        let saveMV = mat4.clone(modelview);
+        let index = 0;
 
-        drawSquare(textureObjects[0]); // front face
+        drawSquare(textureObjects[index++]); // front face
+
+        mat4.rotateY(modelview, modelview, Math.PI / 2);
+        drawSquare(textureObjects[index++]); // right face
+
+        mat4.rotateY(modelview, modelview, Math.PI / 2);
+        drawSquare(textureObjects[index++]); // back face
+
+        mat4.rotateY(modelview, modelview, Math.PI / 2);
+        drawSquare(textureObjects[index++]); // left face
+
+        mat4.rotateY(modelview, modelview, Math.PI / 2); // 360 full rotate
+
+        mat4.rotateX(modelview, modelview, -Math.PI / 2);
+        drawSquare(textureObjects[index++]); // up face
+
+        mat4.rotateX(modelview, modelview, Math.PI);
+        drawSquare(textureObjects[index++]); // bottom face
       }
 
       /**
@@ -140,23 +157,24 @@
 
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
 
-        let img = new Image();
-        img.onload = function () {
-          textureObjects[0] = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, textureObjects[0]);
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            img
-          );
-          gl.generateMipmap(gl.TEXTURE_2D);
-          console.log("loaded texture", 0);
-          draw();
-        };
-        img.src = textureURLs[0];
+        for (let i = 0; i < 6; i++) {
+          img[i] = new Image();
+          img[i].onload = function () {
+            textureObjects[i] = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, textureObjects[i]);
+            gl.texImage2D(
+              gl.TEXTURE_2D,
+              0,
+              gl.RGBA,
+              gl.RGBA,
+              gl.UNSIGNED_BYTE,
+              img[i]
+            );
+            gl.generateMipmap(gl.TEXTURE_2D);
+            if (i === 5) draw();
+          };
+          img[i].src = textureURLs[i];
+        }
       }
 
       /* Creates a program for use in the WebGL context gl, and returns the
